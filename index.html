@@ -54,11 +54,7 @@
         </div>
         <div class="header-right">
           <label for="modelSelect" class="model-label">model</label>
-          <select id="modelSelect" class="model-select">
-            <option value="claude-sonnet-5">sonnet-5</option>
-            <option value="claude-haiku-4-5-20251001">haiku-4.5</option>
-            <option value="claude-opus-4-8">opus-4.8</option>
-          </select>
+          <select id="modelSelect" class="model-select"></select>
         </div>
       </header>
 
@@ -101,13 +97,16 @@
         <button class="modal-close" id="modalClose">×</button>
       </div>
       <div class="modal-body">
-        <label class="modal-label" for="apiKeyInput">Anthropic API key</label>
-        <input type="password" id="apiKeyInput" class="modal-input" placeholder="sk-ant-..." autocomplete="off">
-        <p class="modal-hint">
-          Stored only in <strong>this browser's</strong> local storage — it is sent directly
-          from your browser to Anthropic's API and never touches any server of ours.
-          Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
-        </p>
+        <label class="modal-label" for="providerSelect">Provider</label>
+        <select id="providerSelect" class="modal-input">
+          <option value="gemini">Google Gemini — free tier</option>
+          <option value="anthropic">Anthropic Claude — paid</option>
+        </select>
+
+        <label class="modal-label" for="apiKeyInput" id="apiKeyLabel">API key</label>
+        <input type="password" id="apiKeyInput" class="modal-input" placeholder="paste your key" autocomplete="off">
+        <p class="modal-hint" id="apiKeyHint"></p>
+
         <label class="modal-label" for="systemPromptInput">System prompt</label>
         <textarea id="systemPromptInput" class="modal-textarea" rows="4"></textarea>
         <button class="modal-save-btn" id="modalSave">Save</button>
