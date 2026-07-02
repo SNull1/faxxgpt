@@ -5,6 +5,34 @@
 // for why this is necessary on a static GitHub Pages host.
 // ============================================================
 
+const PROVIDERS = {
+  gemini: {
+    label: "Google Gemini — free tier",
+    keyPlaceholder: "AIza...",
+    keyHint:
+      "Free, no card required. Get a key at " +
+      '<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. ' +
+      "Stored only in this browser's local storage.",
+    models: [
+      { value: "gemini-2.5-flash", label: "gemini-2.5-flash" },
+      { value: "gemini-2.5-flash-lite", label: "gemini-2.5-flash-lite" },
+    ],
+  },
+  anthropic: {
+    label: "Anthropic Claude — paid",
+    keyPlaceholder: "sk-ant-...",
+    keyHint:
+      "Requires purchased API credits (separate from any Claude.ai subscription). Get a key at " +
+      '<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. ' +
+      "Stored only in this browser's local storage.",
+    models: [
+      { value: "claude-sonnet-5", label: "sonnet-5" },
+      { value: "claude-haiku-4-5-20251001", label: "haiku-4.5" },
+      { value: "claude-opus-4-8", label: "opus-4.8" },
+    ],
+  },
+};
+
 const DEFAULT_SYSTEM_PROMPT =
   "You are FAXX GPT, a sharp, concise assistant with a techy, slightly " +
   "irreverent personality. The person you're talking to is into game " +
@@ -13,7 +41,9 @@ const DEFAULT_SYSTEM_PROMPT =
   "with fluff.";
 
 const STORAGE_KEYS = {
-  apiKey: "faxxgpt_api_key",
+  provider: "faxxgpt_provider",
+  apiKeys: "faxxgpt_api_keys", // { gemini: "...", anthropic: "..." }
+  model: "faxxgpt_model",
   systemPrompt: "faxxgpt_system_prompt",
   sessions: "faxxgpt_sessions",
   activeSession: "faxxgpt_active_session",
@@ -84,8 +114,32 @@ function persistSessions() {
   localStorage.setItem(STORAGE_KEYS.activeSession, state.activeSessionId);
 }
 
-function getApiKey() {
-  return localStorage.getItem(STORAGE_KEYS.apiKey) || "";
+function getProvider() {
+  return localStorage.getItem(STORAGE_KEYS.provider) || "gemini";
+}
+function setProvider(p) {
+  localStorage.setItem(STORAGE_KEYS.provider, p);
+}
+function getAllApiKeys() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.apiKeys)) || {};
+  } catch (_) {
+    return {};
+  }
+}
+function getApiKey(provider) {
+  return getAllApiKeys()[provider || getProvider()] || "";
+}
+function setApiKey(provider, key) {
+  const keys = getAllApiKeys();
+  keys[provider] = key;
+  localStorage.setItem(STORAGE_KEYS.apiKeys, JSON.stringify(keys));
+}
+function getModel() {
+  return localStorage.getItem(STORAGE_KEYS.model) || PROVIDERS[getProvider()].models[0].value;
+}
+function setModel(m) {
+  localStorage.setItem(STORAGE_KEYS.model, m);
 }
 function getSystemPrompt() {
   return localStorage.getItem(STORAGE_KEYS.systemPrompt) || DEFAULT_SYSTEM_PROMPT;
@@ -164,6 +218,20 @@ function renderMessages(justAddedAssistant) {
   container.scrollTop = container.scrollHeight;
 }
 
+function populateModelSelect() {
+  const provider = getProvider();
+  const select = document.getElementById("modelSelect");
+  select.innerHTML = "";
+  PROVIDERS[provider].models.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.value;
+    opt.textContent = m.label;
+    select.appendChild(opt);
+  });
+  const savedModel = getModel();
+  const validValues = PROVIDERS[provider].models.map((m) => m.value);
+  select.value = validValues.includes(savedModel) ? savedModel : validValues[0];
+}
 function setTyping(on) {
   document.getElementById("typingRow").hidden = !on;
   if (on) {
@@ -173,14 +241,22 @@ function setTyping(on) {
 
 // ---------------- API call ----------------
 async function callFaxxGPT(messages) {
-  const apiKey = getApiKey();
+  const provider = getProvider();
+  const apiKey = getApiKey(provider);
   if (!apiKey) {
     openSettingsModal();
-    throw new Error("No API key set. Add one in Settings first.");
+    throw new Error("No API key set for " + provider + ". Add one in Settings first.");
   }
 
-  const model = document.getElementById("modelSelect").value;
+  const model = document.getElementById("modelSelect").value || getModel();
 
+  if (provider === "gemini") {
+    return callGemini(messages, apiKey, model);
+  }
+  return callAnthropic(messages, apiKey, model);
+}
+
+async function callAnthropic(messages, apiKey, model) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -209,6 +285,47 @@ async function callFaxxGPT(messages) {
   const data = await response.json();
   const textBlock = (data.content || []).find((b) => b.type === "text");
   return textBlock ? textBlock.text : "(no text content returned)";
+}
+
+async function callGemini(messages, apiKey, model) {
+  // Gemini uses role "model" instead of "assistant", and groups turns
+  // as { role, parts: [{ text }] }. System prompt is a separate field.
+  const contents = messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      contents: contents,
+      systemInstruction: { parts: [{ text: getSystemPrompt() }] },
+    }),
+  });
+
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const errJson = await response.json();
+      detail = errJson?.error?.message || "";
+    } catch (_) {}
+    // A network-level failure before this point (rather than an HTTP
+    // error) usually means the browser blocked the request as CORS —
+    // see the README for the proxy fallback if that happens here.
+    throw new Error(`Gemini API error (${response.status}). ${detail}`);
+  }
+
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+  return text || "(no text content returned)";
 }
 
 // ---------------- sending flow ----------------
@@ -245,8 +362,18 @@ async function handleSend(text) {
 }
 
 // ---------------- settings modal ----------------
+function refreshProviderUI() {
+  const provider = document.getElementById("providerSelect").value;
+  const cfg = PROVIDERS[provider];
+  document.getElementById("apiKeyLabel").textContent = cfg.label + " API key";
+  document.getElementById("apiKeyInput").placeholder = cfg.keyPlaceholder;
+  document.getElementById("apiKeyInput").value = getApiKey(provider);
+  document.getElementById("apiKeyHint").innerHTML = cfg.keyHint;
+}
+
 function openSettingsModal() {
-  document.getElementById("apiKeyInput").value = getApiKey();
+  document.getElementById("providerSelect").value = getProvider();
+  refreshProviderUI();
   document.getElementById("systemPromptInput").value = getSystemPrompt();
   document.getElementById("modalOverlay").hidden = false;
   document.getElementById("apiKeyInput").focus();
@@ -255,10 +382,18 @@ function closeSettingsModal() {
   document.getElementById("modalOverlay").hidden = true;
 }
 function saveSettings() {
+  const provider = document.getElementById("providerSelect").value;
   const key = document.getElementById("apiKeyInput").value.trim();
   const prompt = document.getElementById("systemPromptInput").value.trim();
-  if (key) localStorage.setItem(STORAGE_KEYS.apiKey, key);
+
+  setProvider(provider);
+  if (key) setApiKey(provider, key);
   localStorage.setItem(STORAGE_KEYS.systemPrompt, prompt || DEFAULT_SYSTEM_PROMPT);
+
+  populateModelSelect();
+  setModel(document.getElementById("modelSelect").value);
+  document.getElementById("statusDot").style.background =
+    provider === "gemini" ? "var(--tier-blue)" : "var(--tier-purple)";
   closeSettingsModal();
 }
 
@@ -273,6 +408,7 @@ function init() {
   loadState();
   renderSessionList();
   renderMessages();
+  populateModelSelect();
 
   document.getElementById("newChatBtn").addEventListener("click", () => {
     createSession();
@@ -300,6 +436,8 @@ function init() {
     }
   });
 
+  document.getElementById("modelSelect").addEventListener("change", (e) => setModel(e.target.value));
+  document.getElementById("providerSelect").addEventListener("change", refreshProviderUI);
   document.getElementById("settingsBtn").addEventListener("click", openSettingsModal);
   document.getElementById("modalClose").addEventListener("click", closeSettingsModal);
   document.getElementById("modalSave").addEventListener("click", saveSettings);
