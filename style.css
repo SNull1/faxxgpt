@@ -87,6 +87,7 @@ html, body {
   grid-template-columns: 260px 1fr;
   height: 100vh;
 }
+.app[hidden] { display: none; }
 
 /* ---------------- sidebar ---------------- */
 .sidebar {
@@ -389,6 +390,7 @@ button:focus-visible, .composer-input:focus-visible, .session-item:focus-visible
   z-index: 500;
   padding: 20px;
 }
+.modal-overlay[hidden] { display: none; }
 .modal {
   width: 100%; max-width: 440px;
   background: var(--panel);
