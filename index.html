@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAXX GPT // console</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Boot sequence -->
+  <div id="boot-screen">
+    <pre id="boot-text"></pre>
+  </div>
+
+  <div class="app" id="app" hidden>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">FX</span>
+        <div class="brand-text">
+          <span class="brand-title">FAXX GPT</span>
+          <span class="brand-sub">build console</span>
+        </div>
+      </div>
+
+      <button class="new-chat-btn" id="newChatBtn">
+        <span>+ New session</span>
+      </button>
+
+      <div class="session-list" id="sessionList"></div>
+
+      <div class="sidebar-footer">
+        <div class="tier-legend">
+          <span class="tier-dot tier-blue"></span>
+          <span class="tier-dot tier-purple"></span>
+          <span class="tier-dot tier-pink"></span>
+          <span class="tier-dot tier-red"></span>
+        </div>
+        <button class="settings-btn" id="settingsBtn">⚙ Settings</button>
+      </div>
+    </aside>
+
+    <!-- Main chat -->
+    <main class="chat-main">
+      <header class="chat-header">
+        <div class="header-left">
+          <span class="status-dot" id="statusDot"></span>
+          <span class="header-title" id="chatTitle">untitled_session</span>
+        </div>
+        <div class="header-right">
+          <label for="modelSelect" class="model-label">model</label>
+          <select id="modelSelect" class="model-select">
+            <option value="claude-sonnet-5">sonnet-5</option>
+            <option value="claude-haiku-4-5-20251001">haiku-4.5</option>
+            <option value="claude-opus-4-8">opus-4.8</option>
+          </select>
+        </div>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-glyph">FX</div>
+          <p class="empty-title">FAXX GPT is idle</p>
+          <p class="empty-sub">Drop a message below to unlock a reply.</p>
+        </div>
+      </div>
+
+      <div class="typing-row" id="typingRow" hidden>
+        <span class="typing-tag">FAXX_GPT</span>
+        <span class="typing-dots"><i></i><i></i><i></i></span>
+      </div>
+
+      <form class="composer" id="composerForm">
+        <textarea
+          id="composerInput"
+          class="composer-input"
+          placeholder="Message FAXX_GPT..."
+          rows="1"
+          autocomplete="off"
+        ></textarea>
+        <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <span>⚙ console settings</span>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label" for="apiKeyInput">Anthropic API key</label>
+        <input type="password" id="apiKeyInput" class="modal-input" placeholder="sk-ant-..." autocomplete="off">
+        <p class="modal-hint">
+          Stored only in <strong>this browser's</strong> local storage — it is sent directly
+          from your browser to Anthropic's API and never touches any server of ours.
+          Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
+        </p>
+        <label class="modal-label" for="systemPromptInput">System prompt</label>
+        <textarea id="systemPromptInput" class="modal-textarea" rows="4"></textarea>
+        <button class="modal-save-btn" id="modalSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
